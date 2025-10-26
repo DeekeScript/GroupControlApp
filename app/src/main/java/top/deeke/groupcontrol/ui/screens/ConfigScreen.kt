@@ -13,9 +13,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
+import top.deeke.groupcontrol.data.DataStoreManager
+import top.deeke.groupcontrol.model.ServerConfig
 import top.deeke.groupcontrol.ui.theme.*
 
 @Composable
@@ -27,12 +32,39 @@ fun ConfigScreen() {
     val borderColor = if (isDarkTheme) BorderColor else BorderColorLight
     val primaryColor = if (isDarkTheme) NeonBlue else NeonCyan
     
+    val context = LocalContext.current
+    val dataStoreManager = remember { DataStoreManager(context) }
+    val coroutineScope = rememberCoroutineScope()
+    
     var serverUrl by remember { mutableStateOf("") }
     var requestFrequency by remember { mutableStateOf("5000") }
     var sendRoute by remember { mutableStateOf("/api/send") }
-    var receiveRoute by remember { mutableStateOf("/api/receive") }
-    var apiKey by remember { mutableStateOf("") }
-    var apiSecret by remember { mutableStateOf("") }
+    
+    // 加载配置
+    LaunchedEffect(Unit) {
+        dataStoreManager.serverConfig.collect { config ->
+            serverUrl = config.serverUrl
+            requestFrequency = config.requestFrequency.toString()
+            sendRoute = config.sendRoute
+        }
+    }
+    
+    // 自动保存函数
+    fun saveConfig() {
+        coroutineScope.launch {
+            try {
+                val config = ServerConfig(
+                    serverUrl = serverUrl,
+                    requestFrequency = requestFrequency.toIntOrNull() ?: 5000,
+                    sendRoute = sendRoute
+                )
+                dataStoreManager.saveServerConfig(config)
+            } catch (e: Exception) {
+                // 处理保存错误，可以添加错误提示
+                println("保存配置失败: ${e.message}")
+            }
+        }
+    }
     
     Column(
         modifier = Modifier
@@ -53,7 +85,7 @@ fun ConfigScreen() {
             ) {
                 Text(
                     text = "服务器配置",
-                    color = primaryColor,
+                    color = textPrimaryColor,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = 16.dp)
@@ -61,7 +93,10 @@ fun ConfigScreen() {
 
                 OutlinedTextField(
                     value = serverUrl,
-                    onValueChange = { serverUrl = it },
+                    onValueChange = { 
+                        serverUrl = it
+                        saveConfig()
+                    },
                     label = { Text("服务器地址", color = textSecondaryColor) },
                     placeholder = { Text("https://example.com", color = textSecondaryColor) },
                     modifier = Modifier.fillMaxWidth(),
@@ -77,7 +112,10 @@ fun ConfigScreen() {
 
                 OutlinedTextField(
                     value = requestFrequency,
-                    onValueChange = { requestFrequency = it },
+                    onValueChange = { 
+                        requestFrequency = it
+                        saveConfig()
+                    },
                     label = { Text("请求频率(毫秒)", color = textSecondaryColor) },
                     placeholder = { Text("5000", color = textSecondaryColor) },
                     modifier = Modifier.fillMaxWidth(),
@@ -93,8 +131,11 @@ fun ConfigScreen() {
 
                 OutlinedTextField(
                     value = sendRoute,
-                    onValueChange = { sendRoute = it },
-                    label = { Text("指令发送路由", color = textSecondaryColor) },
+                    onValueChange = { 
+                        sendRoute = it
+                        saveConfig()
+                    },
+                    label = { Text("指令路由", color = textSecondaryColor) },
                     placeholder = { Text("/api/send", color = textSecondaryColor) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -105,91 +146,9 @@ fun ConfigScreen() {
                     )
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
 
-                OutlinedTextField(
-                    value = receiveRoute,
-                    onValueChange = { receiveRoute = it },
-                    label = { Text("指令接收路由", color = textSecondaryColor) },
-                    placeholder = { Text("/api/receive", color = textSecondaryColor) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = primaryColor,
-                        unfocusedBorderColor = borderColor,
-                        focusedTextColor = textPrimaryColor,
-                        unfocusedTextColor = textPrimaryColor
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Text(
-                    text = "API认证配置",
-                    color = primaryColor,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                Text(
-                    text = "用于HTTP请求的身份验证。请确保您的后端支持这些凭据。",
-                    color = textSecondaryColor,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                OutlinedTextField(
-                    value = apiKey,
-                    onValueChange = { apiKey = it },
-                    label = { Text("API Key", color = textSecondaryColor) },
-                    placeholder = { Text("请输入API Key", color = textSecondaryColor) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = primaryColor,
-                        unfocusedBorderColor = borderColor,
-                        focusedTextColor = textPrimaryColor,
-                        unfocusedTextColor = textPrimaryColor
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                OutlinedTextField(
-                    value = apiSecret,
-                    onValueChange = { apiSecret = it },
-                    label = { Text("API Secret", color = textSecondaryColor) },
-                    placeholder = { Text("请输入API Secret", color = textSecondaryColor) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = primaryColor,
-                        unfocusedBorderColor = borderColor,
-                        focusedTextColor = textPrimaryColor,
-                        unfocusedTextColor = textPrimaryColor
-                    )
-                )
             }
         }
 
-        // 保存配置按钮
-        Button(
-            onClick = { 
-                // TODO: 保存配置到DataStore
-                // 这里可以添加保存逻辑
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = primaryColor
-            ),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Text(
-                text = "保存配置",
-                color = if (isDarkTheme) TextPrimary else TextPrimaryLight,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
-            )
-        }
     }
 }

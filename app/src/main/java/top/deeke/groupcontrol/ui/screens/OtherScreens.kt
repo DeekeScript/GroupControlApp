@@ -22,6 +22,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import top.deeke.groupcontrol.database.entity.CommandEntity
+import top.deeke.groupcontrol.data.DataStoreManager
+import top.deeke.groupcontrol.model.ServerConfig
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import top.deeke.groupcontrol.model.Device
 import top.deeke.groupcontrol.model.DeviceStatus
 import top.deeke.groupcontrol.model.Task
@@ -494,8 +498,7 @@ fun CommandScreen() {
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     
-    var showEditDialog by remember { mutableStateOf(false) }
-    var selectedCommand by remember { mutableStateOf<CommandEntity?>(null) }
+    var showClearConfirmDialog by remember { mutableStateOf(false) }
     
     // 文件选择器
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -524,33 +527,70 @@ fun CommandScreen() {
                 fontWeight = FontWeight.Bold
             )
             
-            Button(
-                onClick = { filePickerLauncher.launch("application/json") },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = NeonBlue
-                ),
-                shape = RoundedCornerShape(8.dp),
-                enabled = !isLoading
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
+                // 清除所有指令按钮
+                if (commands.isNotEmpty()) {
+                    Button(
+                        onClick = { 
+                            showClearConfirmDialog = true
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ErrorRed
+                        ),
+                        shape = RoundedCornerShape(6.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = "清空",
+                            tint = TextPrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "清空",
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+                
+                // 导入指令按钮
+                Button(
+                    onClick = { filePickerLauncher.launch("application/json") },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = NeonBlue
+                    ),
+                    shape = RoundedCornerShape(6.dp),
+                    enabled = !isLoading,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            color = TextPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "导入指令",
+                            tint = TextPrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isLoading) "导入中..." else "导入指令",
                         color = TextPrimary,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "导入指令",
-                        tint = TextPrimary
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp
                     )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (isLoading) "导入中..." else "导入指令文件",
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Medium
-                )
             }
         }
         
@@ -640,10 +680,6 @@ fun CommandScreen() {
                 items(commands) { command ->
                     CommandCard(
                         command = command,
-                        onEdit = { 
-                            selectedCommand = command
-                            showEditDialog = true 
-                        },
                         onDelete = { 
                             viewModel.deleteCommand(command)
                         }
@@ -653,18 +689,39 @@ fun CommandScreen() {
         }
     }
     
-    // 编辑指令对话框
-    if (showEditDialog && selectedCommand != null) {
-        EditCommandDialog(
-            command = selectedCommand!!,
-            onDismiss = { 
-                showEditDialog = false
-                selectedCommand = null
+    // 清除确认对话框
+    if (showClearConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirmDialog = false },
+            title = {
+                Text(
+                    text = "确认清除",
+                    color = if (isSystemInDarkTheme()) TextPrimary else TextPrimaryLight
+                )
             },
-            onConfirm = { updatedCommand ->
-                viewModel.updateCommand(updatedCommand)
-                showEditDialog = false
-                selectedCommand = null
+            text = {
+                Text(
+                    text = "确定要清除所有指令吗？此操作不可撤销。",
+                    color = if (isSystemInDarkTheme()) TextSecondary else TextSecondaryLight
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteAllCommands()
+                        showClearConfirmDialog = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = ErrorRed
+                    )
+                ) {
+                    Text("确定清除")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirmDialog = false }) {
+                    Text("取消")
+                }
             }
         )
     }
@@ -673,7 +730,6 @@ fun CommandScreen() {
 @Composable
 fun CommandCard(
     command: CommandEntity,
-    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val isDarkTheme = isSystemInDarkTheme()
@@ -703,28 +759,19 @@ fun CommandCard(
                 )
                 
                 // 操作按钮
-                Row {
-                    IconButton(onClick = onEdit) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "编辑",
-                            tint = NeonBlue
-                        )
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "删除",
-                            tint = ErrorRed
-                        )
-                    }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "删除",
+                        tint = ErrorRed
+                    )
                 }
             }
             
             if (command.title.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "标题: ${command.title}",
+                    text = "功能: ${command.title}",
                     color = textSecondaryColor,
                     fontSize = 14.sp
                 )
@@ -733,7 +780,7 @@ fun CommandCard(
             if (command.jsFile.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "JS文件: ${command.jsFile}",
+                    text = "指令: ${command.jsFile}",
                     color = textSecondaryColor,
                     fontSize = 14.sp
                 )
@@ -749,73 +796,6 @@ fun CommandCard(
             }
         }
     }
-}
-
-@Composable
-fun EditCommandDialog(
-    command: CommandEntity,
-    onDismiss: () -> Unit,
-    onConfirm: (CommandEntity) -> Unit
-) {
-    var name by remember { mutableStateOf(command.name) }
-    var description by remember { mutableStateOf(command.description) }
-    var content by remember { mutableStateOf(command.content) }
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "编辑指令",
-                color = if (isSystemInDarkTheme()) TextPrimary else TextPrimaryLight
-            )
-        },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("指令名称") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("描述") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = content,
-                    onValueChange = { content = it },
-                    label = { Text("JSON内容") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (name.isNotEmpty() && content.isNotEmpty()) {
-                        onConfirm(
-                            command.copy(
-                                name = name,
-                                description = description,
-                                content = content
-                            )
-                        )
-                    }
-                }
-            ) {
-                Text("确定")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
 }
 
 @Composable

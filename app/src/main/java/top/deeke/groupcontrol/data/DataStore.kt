@@ -19,19 +19,13 @@ class DataStoreManager(private val context: Context) {
     private val serverUrlKey = stringPreferencesKey("server_url")
     private val requestFrequencyKey = intPreferencesKey("request_frequency")
     private val sendRouteKey = stringPreferencesKey("send_route")
-    private val receiveRouteKey = stringPreferencesKey("receive_route")
-    private val apiKeyKey = stringPreferencesKey("api_key")
-    private val apiSecretKey = stringPreferencesKey("api_secret")
     
     // 获取服务器配置
     val serverConfig: Flow<ServerConfig> = context.dataStore.data.map { preferences ->
         ServerConfig(
             serverUrl = preferences[serverUrlKey] ?: "",
             requestFrequency = preferences[requestFrequencyKey] ?: 5000,
-            sendRoute = preferences[sendRouteKey] ?: "/api/send",
-            receiveRoute = preferences[receiveRouteKey] ?: "/api/receive",
-            apiKey = preferences[apiKeyKey] ?: "",
-            apiSecret = preferences[apiSecretKey] ?: ""
+            sendRoute = preferences[sendRouteKey] ?: "/api/send"
         )
     }
     
@@ -41,9 +35,6 @@ class DataStoreManager(private val context: Context) {
             preferences[serverUrlKey] = config.serverUrl
             preferences[requestFrequencyKey] = config.requestFrequency
             preferences[sendRouteKey] = config.sendRoute
-            preferences[receiveRouteKey] = config.receiveRoute
-            preferences[apiKeyKey] = config.apiKey
-            preferences[apiSecretKey] = config.apiSecret
         }
     }
 }

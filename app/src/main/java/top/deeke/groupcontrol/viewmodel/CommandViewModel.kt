@@ -101,6 +101,12 @@ class CommandViewModel(context: Context) : ViewModel() {
         }
     }
     
+    fun deleteAllCommands() {
+        viewModelScope.launch {
+            repository.deleteAllCommands()
+        }
+    }
+    
     private fun createMethodJsonString(method: DeekeScriptJsonParser.DeekeScriptMethod): String {
         val json = org.json.JSONObject()
         json.put("title", method.title)

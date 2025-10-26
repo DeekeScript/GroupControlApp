@@ -6,10 +6,7 @@ data class ServerConfig(
     val id: Int = 0,
     val serverUrl: String = "",
     val requestFrequency: Int = 5000, // 毫秒
-    val sendRoute: String = "/api/send",
-    val receiveRoute: String = "/api/receive",
-    val apiKey: String = "", // API Key
-    val apiSecret: String = "" // API Secret
+    val sendRoute: String = "/api/send"
 ) : Parcelable {
     override fun describeContents(): Int = 0
     override fun writeToParcel(dest: android.os.Parcel, flags: Int) {
@@ -17,9 +14,6 @@ data class ServerConfig(
         dest.writeString(serverUrl)
         dest.writeInt(requestFrequency)
         dest.writeString(sendRoute)
-        dest.writeString(receiveRoute)
-        dest.writeString(apiKey)
-        dest.writeString(apiSecret)
     }
     
     companion object {
@@ -30,10 +24,7 @@ data class ServerConfig(
                     id = parcel.readInt(),
                     serverUrl = parcel.readString() ?: "",
                     requestFrequency = parcel.readInt(),
-                    sendRoute = parcel.readString() ?: "",
-                    receiveRoute = parcel.readString() ?: "",
-                    apiKey = parcel.readString() ?: "",
-                    apiSecret = parcel.readString() ?: ""
+                    sendRoute = parcel.readString() ?: ""
                 )
             }
             
