@@ -1,16 +1,17 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id("kotlin-kapt")
 }
 
 android {
     namespace "top.deeke.groupcontrol"
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         applicationId "top.deeke.groupcontrol"
         minSdk 26
-        targetSdk 34
+        targetSdk 35
         versionCode 1
         versionName "1.0"
 
@@ -27,17 +28,17 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
     }
     buildFeatures {
         compose true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion "1.5.1"
+        kotlinCompilerExtensionVersion "1.4.8"
     }
     packaging {
         resources {
@@ -57,11 +58,16 @@ dependencies {
     implementation libs.androidx.material3
     
     // DataStore
-    implementation "androidx.datastore:datastore-preferences:1.0.0"
+    implementation libs.androidx.datastore.preferences
+    
+    // Room Database
+    implementation libs.androidx.room.runtime
+    implementation libs.androidx.room.ktx
+    kapt libs.androidx.room.compiler
     
     // ViewModel
-    implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0"
-    implementation "androidx.lifecycle:lifecycle-runtime-compose:2.7.0"
+    implementation libs.androidx.lifecycle.viewmodel.compose
+    implementation libs.androidx.lifecycle.runtime.compose
     
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit

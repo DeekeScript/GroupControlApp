@@ -1,5 +1,8 @@
 ﻿package top.deeke.groupcontrol.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -12,15 +15,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import top.deeke.groupcontrol.database.entity.CommandEntity
 import top.deeke.groupcontrol.model.Device
 import top.deeke.groupcontrol.model.DeviceStatus
-import top.deeke.groupcontrol.model.Command
 import top.deeke.groupcontrol.model.Task
 import top.deeke.groupcontrol.ui.theme.*
+import top.deeke.groupcontrol.viewmodel.CommandViewModel
+import top.deeke.groupcontrol.viewmodel.CommandViewModelFactory
 
 @Composable
 fun DeviceScreen() {
@@ -477,12 +484,27 @@ fun EditDeviceDialog(
 fun CommandScreen() {
     val isDarkTheme = isSystemInDarkTheme()
     val textPrimaryColor = if (isDarkTheme) TextPrimary else TextPrimaryLight
+    val context = LocalContext.current
+    val viewModel: CommandViewModel = viewModel(
+        factory = CommandViewModelFactory(context)
+    )
     
-    // 指令列表状态
-    val commands = remember { mutableStateListOf<Command>() }
-    var showAddDialog by remember { mutableStateOf(false) }
+    // 从ViewModel获取状态
+    val commands by viewModel.commands.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
+    
     var showEditDialog by remember { mutableStateOf(false) }
-    var selectedCommand by remember { mutableStateOf<Command?>(null) }
+    var selectedCommand by remember { mutableStateOf<CommandEntity?>(null) }
+    
+    // 文件选择器
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            viewModel.importDeekeScriptJson(it, context)
+        }
+    }
     
     Column(
         modifier = Modifier
@@ -503,20 +525,29 @@ fun CommandScreen() {
             )
             
             Button(
-                onClick = { showAddDialog = true },
+                onClick = { filePickerLauncher.launch("application/json") },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = NeonBlue
                 ),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(8.dp),
+                enabled = !isLoading
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "添加指令",
-                    tint = TextPrimary
-                )
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = TextPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "导入指令",
+                        tint = TextPrimary
+                    )
+                }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "添加指令",
+                    text = if (isLoading) "导入中..." else "导入指令文件",
                     color = TextPrimary,
                     fontWeight = FontWeight.Medium
                 )
@@ -524,6 +555,47 @@ fun CommandScreen() {
         }
         
         Spacer(modifier = Modifier.height(16.dp))
+        
+        // 错误消息显示
+        errorMessage?.let { message ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isDarkTheme) ErrorRed else ErrorRed
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "错误",
+                        tint = TextPrimary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = message,
+                        color = TextPrimary,
+                        fontSize = 14.sp
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    IconButton(
+                        onClick = { viewModel.clearError() }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "关闭",
+                            tint = TextPrimary
+                        )
+                    }
+                }
+            }
+        }
         
         // 指令列表或空状态
         if (commands.isEmpty()) {
@@ -553,7 +625,7 @@ fun CommandScreen() {
                     Spacer(modifier = Modifier.height(8.dp))
                     
                     Text(
-                        text = "点击上方添加指令按钮\n添加您的第一个指令",
+                        text = "请点击上方按钮导入deekeScrip.json文件",
                         color = if (isDarkTheme) TextSecondary else TextSecondaryLight,
                         fontSize = 14.sp,
                         textAlign = TextAlign.Center,
@@ -573,23 +645,12 @@ fun CommandScreen() {
                             showEditDialog = true 
                         },
                         onDelete = { 
-                            commands.remove(command)
+                            viewModel.deleteCommand(command)
                         }
                     )
                 }
             }
         }
-    }
-    
-    // 添加指令对话框
-    if (showAddDialog) {
-        AddCommandDialog(
-            onDismiss = { showAddDialog = false },
-            onConfirm = { command ->
-                commands.add(command)
-                showAddDialog = false
-            }
-        )
     }
     
     // 编辑指令对话框
@@ -601,10 +662,7 @@ fun CommandScreen() {
                 selectedCommand = null
             },
             onConfirm = { updatedCommand ->
-                val index = commands.indexOfFirst { it.id == updatedCommand.id }
-                if (index != -1) {
-                    commands[index] = updatedCommand
-                }
+                viewModel.updateCommand(updatedCommand)
                 showEditDialog = false
                 selectedCommand = null
             }
@@ -614,7 +672,7 @@ fun CommandScreen() {
 
 @Composable
 fun CommandCard(
-    command: Command,
+    command: CommandEntity,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -663,97 +721,41 @@ fun CommandCard(
                 }
             }
             
+            if (command.title.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "标题: ${command.title}",
+                    color = textSecondaryColor,
+                    fontSize = 14.sp
+                )
+            }
+            
+            if (command.jsFile.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "JS文件: ${command.jsFile}",
+                    color = textSecondaryColor,
+                    fontSize = 14.sp
+                )
+            }
+            
             if (command.description.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = command.description,
                     color = textSecondaryColor,
                     fontSize = 14.sp
                 )
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "JSON内容: ",
-                color = textDisabledColor,
-                fontSize = 12.sp
-            )
         }
     }
 }
 
 @Composable
-fun AddCommandDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (Command) -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var content by remember { mutableStateOf("") }
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "添加指令",
-                color = if (isSystemInDarkTheme()) TextPrimary else TextPrimaryLight
-            )
-        },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("指令名称") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("描述") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = content,
-                    onValueChange = { content = it },
-                    label = { Text("JSON内容") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (name.isNotEmpty() && content.isNotEmpty()) {
-                        onConfirm(
-                            Command(
-                                id = System.currentTimeMillis().toInt(),
-                                name = name,
-                                description = description,
-                                content = content
-                            )
-                        )
-                    }
-                }
-            ) {
-                Text("确定")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
-}
-
-@Composable
 fun EditCommandDialog(
-    command: Command,
+    command: CommandEntity,
     onDismiss: () -> Unit,
-    onConfirm: (Command) -> Unit
+    onConfirm: (CommandEntity) -> Unit
 ) {
     var name by remember { mutableStateOf(command.name) }
     var description by remember { mutableStateOf(command.description) }
