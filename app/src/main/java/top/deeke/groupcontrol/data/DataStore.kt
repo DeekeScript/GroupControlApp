@@ -19,13 +19,18 @@ class DataStoreManager(private val context: Context) {
     private val serverUrlKey = stringPreferencesKey("server_url")
     private val requestFrequencyKey = intPreferencesKey("request_frequency")
     private val sendRouteKey = stringPreferencesKey("send_route")
+    private val loginRouteKey = stringPreferencesKey("login_route")
+    
+    // 用户认证相关
+    private val tokenKey = stringPreferencesKey("auth_token")
     
     // 获取服务器配置
     val serverConfig: Flow<ServerConfig> = context.dataStore.data.map { preferences ->
         ServerConfig(
             serverUrl = preferences[serverUrlKey] ?: "",
             requestFrequency = preferences[requestFrequencyKey] ?: 5000,
-            sendRoute = preferences[sendRouteKey] ?: "/api/send"
+            sendRoute = preferences[sendRouteKey] ?: "/api/send",
+            loginRoute = preferences[loginRouteKey] ?: "/api/login"
         )
     }
     
@@ -35,6 +40,26 @@ class DataStoreManager(private val context: Context) {
             preferences[serverUrlKey] = config.serverUrl
             preferences[requestFrequencyKey] = config.requestFrequency
             preferences[sendRouteKey] = config.sendRoute
+            preferences[loginRouteKey] = config.loginRoute
+        }
+    }
+    
+    // 获取认证token
+    val authToken: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[tokenKey] ?: ""
+    }
+    
+    // 保存认证token
+    suspend fun saveAuthToken(token: String) {
+        context.dataStore.edit { preferences ->
+            preferences[tokenKey] = token
+        }
+    }
+    
+    // 清除认证token
+    suspend fun clearAuthToken() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(tokenKey)
         }
     }
 }

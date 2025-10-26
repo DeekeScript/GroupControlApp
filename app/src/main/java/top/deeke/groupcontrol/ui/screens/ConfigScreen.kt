@@ -24,7 +24,9 @@ import top.deeke.groupcontrol.model.ServerConfig
 import top.deeke.groupcontrol.ui.theme.*
 
 @Composable
-fun ConfigScreen() {
+fun ConfigScreen(
+    onBack: () -> Unit = {}
+) {
     val isDarkTheme = isSystemInDarkTheme()
     val textPrimaryColor = if (isDarkTheme) TextPrimary else TextPrimaryLight
     val textSecondaryColor = if (isDarkTheme) TextSecondary else TextSecondaryLight
@@ -39,6 +41,7 @@ fun ConfigScreen() {
     var serverUrl by remember { mutableStateOf("") }
     var requestFrequency by remember { mutableStateOf("5000") }
     var sendRoute by remember { mutableStateOf("/api/send") }
+    var loginRoute by remember { mutableStateOf("/api/login") }
     
     // 加载配置
     LaunchedEffect(Unit) {
@@ -46,6 +49,7 @@ fun ConfigScreen() {
             serverUrl = config.serverUrl
             requestFrequency = config.requestFrequency.toString()
             sendRoute = config.sendRoute
+            loginRoute = config.loginRoute
         }
     }
     
@@ -56,7 +60,8 @@ fun ConfigScreen() {
                 val config = ServerConfig(
                     serverUrl = serverUrl,
                     requestFrequency = requestFrequency.toIntOrNull() ?: 5000,
-                    sendRoute = sendRoute
+                    sendRoute = sendRoute,
+                    loginRoute = loginRoute
                 )
                 dataStoreManager.saveServerConfig(config)
             } catch (e: Exception) {
@@ -72,6 +77,24 @@ fun ConfigScreen() {
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
+        // 顶部导航栏
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "服务器配置",
+                color = textPrimaryColor,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.width(48.dp)) // 占位，保持标题居中
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
         // 服务器配置卡片
         Card(
             modifier = Modifier
@@ -83,14 +106,6 @@ fun ConfigScreen() {
             Column(
                 modifier = Modifier.padding(16.dp)
             ) {
-                Text(
-                    text = "服务器配置",
-                    color = textPrimaryColor,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
                 OutlinedTextField(
                     value = serverUrl,
                     onValueChange = { 
@@ -137,6 +152,25 @@ fun ConfigScreen() {
                     },
                     label = { Text("指令路由", color = textSecondaryColor) },
                     placeholder = { Text("/api/send", color = textSecondaryColor) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = primaryColor,
+                        unfocusedBorderColor = borderColor,
+                        focusedTextColor = textPrimaryColor,
+                        unfocusedTextColor = textPrimaryColor
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = loginRoute,
+                    onValueChange = { 
+                        loginRoute = it
+                        saveConfig()
+                    },
+                    label = { Text("登录路由", color = textSecondaryColor) },
+                    placeholder = { Text("/api/login", color = textSecondaryColor) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = primaryColor,

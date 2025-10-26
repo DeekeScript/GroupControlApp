@@ -22,481 +22,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import top.deeke.groupcontrol.database.entity.CommandEntity
-import top.deeke.groupcontrol.data.DataStoreManager
-import top.deeke.groupcontrol.model.ServerConfig
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
-import top.deeke.groupcontrol.model.Device
-import top.deeke.groupcontrol.model.DeviceStatus
 import top.deeke.groupcontrol.model.Task
 import top.deeke.groupcontrol.ui.theme.*
 import top.deeke.groupcontrol.viewmodel.CommandViewModel
 import top.deeke.groupcontrol.viewmodel.CommandViewModelFactory
 
 @Composable
-fun DeviceScreen() {
-    val isDarkTheme = isSystemInDarkTheme()
-    val textPrimaryColor = if (isDarkTheme) TextPrimary else TextPrimaryLight
-    val textSecondaryColor = if (isDarkTheme) TextSecondary else TextSecondaryLight
-    val textDisabledColor = if (isDarkTheme) TextDisabled else TextDisabledLight
-    val surfaceVariantColor = if (isDarkTheme) TechDarkSurfaceVariant else TechLightSurfaceVariant
-    
-    // 设备列表状态
-    val devices = remember { mutableStateListOf<Device>() }
-    var showAddDialog by remember { mutableStateOf(false) }
-    var showEditDialog by remember { mutableStateOf(false) }
-    var selectedDevice by remember { mutableStateOf<Device?>(null) }
-    
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // 顶部操作栏
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "设备管理",
-                color = textPrimaryColor,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
-            
-            Button(
-                onClick = { showAddDialog = true },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = NeonBlue
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "添加设备",
-                    tint = TextPrimary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "添加设备",
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // 设备列表或空状态
-        if (devices.isEmpty()) {
-            // 空状态提示
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Phone,
-                        contentDescription = "无设备",
-                        modifier = Modifier.size(80.dp),
-                        tint = textSecondaryColor
-                    )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Text(
-                        text = "暂无设备",
-                        color = textPrimaryColor,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Text(
-                        text = "点击上方添加设备按钮\n添加您的第一个设备",
-                        color = textSecondaryColor,
-                        fontSize = 14.sp,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 20.sp
-                    )
-                    
-                    Spacer(modifier = Modifier.height(24.dp))
-                    
-                    Button(
-                        onClick = { showAddDialog = true },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = NeonBlue
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "添加设备",
-                            tint = TextPrimary
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "添加设备",
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-        } else {
-            // 设备列表
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(devices) { device ->
-                    DeviceCard(
-                        device = device,
-                        onEdit = { 
-                            selectedDevice = device
-                            showEditDialog = true 
-                        },
-                        onDelete = { 
-                            devices.remove(device)
-                        }
-                    )
-                }
-            }
-        }
-    }
-    
-    // 添加设备对话框
-    if (showAddDialog) {
-        AddDeviceDialog(
-            onDismiss = { showAddDialog = false },
-            onConfirm = { device ->
-                devices.add(device)
-                showAddDialog = false
-            }
-        )
-    }
-    
-    // 编辑设备对话框
-    if (showEditDialog && selectedDevice != null) {
-        EditDeviceDialog(
-            device = selectedDevice!!,
-            onDismiss = { 
-                showEditDialog = false
-                selectedDevice = null
-            },
-            onConfirm = { updatedDevice ->
-                val index = devices.indexOfFirst { it.id == updatedDevice.id }
-                if (index != -1) {
-                    devices[index] = updatedDevice
-                }
-                showEditDialog = false
-                selectedDevice = null
-            }
-        )
-    }
-}
-
-@Composable
-fun DeviceCard(
-    device: Device,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
-) {
-    val isDarkTheme = isSystemInDarkTheme()
-    val textPrimaryColor = if (isDarkTheme) TextPrimary else TextPrimaryLight
-    val textSecondaryColor = if (isDarkTheme) TextSecondary else TextSecondaryLight
-    val textDisabledColor = if (isDarkTheme) TextDisabled else TextDisabledLight
-    val surfaceVariantColor = if (isDarkTheme) TechDarkSurfaceVariant else TechLightSurfaceVariant
-    
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = surfaceVariantColor)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = device.name,
-                    color = textPrimaryColor,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                // 操作按钮
-                Row {
-                    IconButton(onClick = onEdit) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "编辑",
-                            tint = NeonBlue
-                        )
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "删除",
-                            tint = ErrorRed
-                        )
-                    }
-                }
-            }
-            
-            // 设备状态指示器
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(
-                                color = when (device.status) {
-                                    DeviceStatus.ONLINE -> SuccessGreen
-                                    DeviceStatus.OFFLINE -> textDisabledColor
-                                    DeviceStatus.BUSY -> WarningOrange
-                                    DeviceStatus.ERROR -> ErrorRed
-                                },
-                                shape = RoundedCornerShape(4.dp)
-                            )
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = when (device.status) {
-                            DeviceStatus.ONLINE -> "在线"
-                            DeviceStatus.OFFLINE -> "离线"
-                            DeviceStatus.BUSY -> "忙碌"
-                            DeviceStatus.ERROR -> "错误"
-                        },
-                        color = when (device.status) {
-                            DeviceStatus.ONLINE -> SuccessGreen
-                            DeviceStatus.OFFLINE -> textDisabledColor
-                            DeviceStatus.BUSY -> WarningOrange
-                            DeviceStatus.ERROR -> ErrorRed
-                        },
-                        fontSize = 12.sp
-                    )
-                }
-            }
-            
-            if (device.remark.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = device.remark,
-                    color = textSecondaryColor,
-                    fontSize = 14.sp
-                )
-            }
-            
-            if (device.location.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = "位置",
-                        modifier = Modifier.size(16.dp),
-                        tint = textSecondaryColor
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = device.location,
-                        color = textSecondaryColor,
-                        fontSize = 12.sp
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "设备ID: ",
-                color = textDisabledColor,
-                fontSize = 12.sp
-            )
-        }
-    }
-}
-
-@Composable
-fun AddDeviceDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (Device) -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var remark by remember { mutableStateOf("") }
-    var location by remember { mutableStateOf("") }
-    var deviceId by remember { mutableStateOf("") }
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "添加设备",
-                color = if (isSystemInDarkTheme()) TextPrimary else TextPrimaryLight
-            )
-        },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("设备名称") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = remark,
-                    onValueChange = { remark = it },
-                    label = { Text("备注") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = location,
-                    onValueChange = { location = it },
-                    label = { Text("位置") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = deviceId,
-                    onValueChange = { deviceId = it },
-                    label = { Text("设备ID") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (name.isNotEmpty() && deviceId.isNotEmpty()) {
-                        onConfirm(
-                            Device(
-                                id = System.currentTimeMillis().toInt(),
-                                name = name,
-                                remark = remark,
-                                location = location,
-                                deviceId = deviceId,
-                                status = DeviceStatus.OFFLINE
-                            )
-                        )
-                    }
-                }
-            ) {
-                Text("确定")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
-}
-
-@Composable
-fun EditDeviceDialog(
-    device: Device,
-    onDismiss: () -> Unit,
-    onConfirm: (Device) -> Unit
-) {
-    var name by remember { mutableStateOf(device.name) }
-    var remark by remember { mutableStateOf(device.remark) }
-    var location by remember { mutableStateOf(device.location) }
-    var deviceId by remember { mutableStateOf(device.deviceId) }
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "编辑设备",
-                color = if (isSystemInDarkTheme()) TextPrimary else TextPrimaryLight
-            )
-        },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("设备名称") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = remark,
-                    onValueChange = { remark = it },
-                    label = { Text("备注") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = location,
-                    onValueChange = { location = it },
-                    label = { Text("位置") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = deviceId,
-                    onValueChange = { deviceId = it },
-                    label = { Text("设备ID") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (name.isNotEmpty() && deviceId.isNotEmpty()) {
-                        onConfirm(
-                            device.copy(
-                                name = name,
-                                remark = remark,
-                                location = location,
-                                deviceId = deviceId
-                            )
-                        )
-                    }
-                }
-            ) {
-                Text("确定")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
-}
-
-@Composable
 fun CommandScreen() {
     val isDarkTheme = isSystemInDarkTheme()
     val textPrimaryColor = if (isDarkTheme) TextPrimary else TextPrimaryLight
-    val context = LocalContext.current
-    val viewModel: CommandViewModel = viewModel(
-        factory = CommandViewModelFactory(context)
-    )
+    val textSecondaryColor = if (isDarkTheme) TextSecondary else TextSecondaryLight
+    val surfaceVariantColor = if (isDarkTheme) TechDarkSurfaceVariant else TechLightSurfaceVariant
     
-    // 从ViewModel获取状态
-    val commands by viewModel.commands.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val errorMessage by viewModel.errorMessage.collectAsState()
+    val context = LocalContext.current
+    val commandViewModel: CommandViewModel = viewModel(factory = CommandViewModelFactory(context))
+    val commands by commandViewModel.commands.collectAsState()
+    val isLoading by commandViewModel.isLoading.collectAsState()
+    val errorMessage by commandViewModel.errorMessage.collectAsState()
     
     var showClearConfirmDialog by remember { mutableStateOf(false) }
     
@@ -505,7 +47,15 @@ fun CommandScreen() {
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            viewModel.importDeekeScriptJson(it, context)
+            commandViewModel.importDeekeScriptJson(it, context)
+        }
+    }
+    
+    // 清除错误信息
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) {
+            kotlinx.coroutines.delay(3000)
+            commandViewModel.clearError()
         }
     }
     
@@ -534,7 +84,7 @@ fun CommandScreen() {
                 // 清除所有指令按钮
                 if (commands.isNotEmpty()) {
                     Button(
-                        onClick = { 
+                        onClick = {
                             showClearConfirmDialog = true
                         },
                         colors = ButtonDefaults.buttonColors(
@@ -596,61 +146,54 @@ fun CommandScreen() {
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // 错误消息显示
+        // 错误信息显示
         errorMessage?.let { message ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp),
+                    .padding(bottom = 16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isDarkTheme) ErrorRed else ErrorRed
-                )
+                    containerColor = ErrorRed.copy(alpha = 0.1f)
+                ),
+                shape = RoundedCornerShape(8.dp)
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
+                    modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = Icons.Default.Warning,
                         contentDescription = "错误",
-                        tint = TextPrimary
+                        tint = ErrorRed,
+                        modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = message,
-                        color = TextPrimary,
-                        fontSize = 14.sp
+                        color = ErrorRed,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
                     )
-                    Spacer(modifier = Modifier.weight(1f))
-                    IconButton(
-                        onClick = { viewModel.clearError() }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "关闭",
-                            tint = TextPrimary
-                        )
-                    }
                 }
             }
         }
         
         // 指令列表或空状态
         if (commands.isEmpty()) {
+            // 空状态提示
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Settings,
                         contentDescription = "无指令",
                         modifier = Modifier.size(80.dp),
-                        tint = if (isDarkTheme) TextSecondary else TextSecondaryLight
+                        tint = textSecondaryColor
                     )
                     
                     Spacer(modifier = Modifier.height(16.dp))
@@ -665,8 +208,8 @@ fun CommandScreen() {
                     Spacer(modifier = Modifier.height(8.dp))
                     
                     Text(
-                        text = "请点击上方按钮导入deekeScrip.json文件",
-                        color = if (isDarkTheme) TextSecondary else TextSecondaryLight,
+                        text = "请点击上方按钮导入deekeScript.json文件",
+                        color = textSecondaryColor,
                         fontSize = 14.sp,
                         textAlign = TextAlign.Center,
                         lineHeight = 20.sp
@@ -674,53 +217,53 @@ fun CommandScreen() {
                 }
             }
         } else {
+            // 指令列表
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(commands) { command ->
-                    CommandCard(
-                        command = command,
-                        onDelete = { 
-                            viewModel.deleteCommand(command)
-                        }
-                    )
+                    CommandCard(command = command)
                 }
             }
         }
     }
     
-    // 清除确认对话框
+    // 清空确认对话框
     if (showClearConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showClearConfirmDialog = false },
             title = {
                 Text(
-                    text = "确认清除",
-                    color = if (isSystemInDarkTheme()) TextPrimary else TextPrimaryLight
+                    text = "确认清空",
+                    color = textPrimaryColor,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Text(
-                    text = "确定要清除所有指令吗？此操作不可撤销。",
-                    color = if (isSystemInDarkTheme()) TextSecondary else TextSecondaryLight
+                    text = "确定要清空所有指令吗？此操作不可撤销。",
+                    color = textSecondaryColor,
+                    fontSize = 14.sp
                 )
             },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
-                        viewModel.deleteAllCommands()
+                        commandViewModel.deleteAllCommands()
                         showClearConfirmDialog = false
                     },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = ErrorRed
-                    )
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ErrorRed
+                    ),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("确定清除")
+                    Text("确认清空", color = TextPrimary)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearConfirmDialog = false }) {
-                    Text("取消")
+                    Text("取消", color = textSecondaryColor)
                 }
             }
         )
@@ -728,14 +271,10 @@ fun CommandScreen() {
 }
 
 @Composable
-fun CommandCard(
-    command: CommandEntity,
-    onDelete: () -> Unit
-) {
+fun CommandCard(command: CommandEntity) {
     val isDarkTheme = isSystemInDarkTheme()
     val textPrimaryColor = if (isDarkTheme) TextPrimary else TextPrimaryLight
     val textSecondaryColor = if (isDarkTheme) TextSecondary else TextSecondaryLight
-    val textDisabledColor = if (isDarkTheme) TextDisabled else TextDisabledLight
     val surfaceVariantColor = if (isDarkTheme) TechDarkSurfaceVariant else TechLightSurfaceVariant
     
     Card(
@@ -746,27 +285,12 @@ fun CommandCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = command.name,
-                    color = textPrimaryColor,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                // 操作按钮
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "删除",
-                        tint = ErrorRed
-                    )
-                }
-            }
+            Text(
+                text = command.name,
+                color = textPrimaryColor,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
             
             if (command.title.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
@@ -787,11 +311,12 @@ fun CommandCard(
             }
             
             if (command.description.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = command.description,
                     color = textSecondaryColor,
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
                 )
             }
         }
@@ -802,12 +327,11 @@ fun CommandCard(
 fun TaskScreen() {
     val isDarkTheme = isSystemInDarkTheme()
     val textPrimaryColor = if (isDarkTheme) TextPrimary else TextPrimaryLight
+    val textSecondaryColor = if (isDarkTheme) TextSecondary else TextSecondaryLight
+    val surfaceVariantColor = if (isDarkTheme) TechDarkSurfaceVariant else TechLightSurfaceVariant
     
     // 任务列表状态
     val tasks = remember { mutableStateListOf<Task>() }
-    var showAddDialog by remember { mutableStateOf(false) }
-    var showEditDialog by remember { mutableStateOf(false) }
-    var selectedTask by remember { mutableStateOf<Task?>(null) }
     
     Column(
         modifier = Modifier
@@ -828,7 +352,7 @@ fun TaskScreen() {
             )
             
             Button(
-                onClick = { showAddDialog = true },
+                onClick = { /* TODO: 添加任务 */ },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = NeonBlue
                 ),
@@ -852,18 +376,20 @@ fun TaskScreen() {
         
         // 任务列表或空状态
         if (tasks.isEmpty()) {
+            // 空状态提示
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.List,
+                        imageVector = Icons.Default.PlayArrow,
                         contentDescription = "无任务",
                         modifier = Modifier.size(80.dp),
-                        tint = if (isDarkTheme) TextSecondary else TextSecondaryLight
+                        tint = textSecondaryColor
                     )
                     
                     Spacer(modifier = Modifier.height(16.dp))
@@ -878,8 +404,8 @@ fun TaskScreen() {
                     Spacer(modifier = Modifier.height(8.dp))
                     
                     Text(
-                        text = "点击上方添加任务按钮\n添加您的第一个任务",
-                        color = if (isDarkTheme) TextSecondary else TextSecondaryLight,
+                        text = "点击上方添加任务按钮\n创建您的第一个任务",
+                        color = textSecondaryColor,
                         fontSize = 14.sp,
                         textAlign = TextAlign.Center,
                         lineHeight = 20.sp
@@ -887,66 +413,23 @@ fun TaskScreen() {
                 }
             }
         } else {
+            // 任务列表
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(tasks) { task ->
-                    TaskCard(
-                        task = task,
-                        onEdit = { 
-                            selectedTask = task
-                            showEditDialog = true 
-                        },
-                        onDelete = { 
-                            tasks.remove(task)
-                        }
-                    )
+                    TaskCard(task = task)
                 }
             }
         }
     }
-    
-    // 添加任务对话框
-    if (showAddDialog) {
-        AddTaskDialog(
-            onDismiss = { showAddDialog = false },
-            onConfirm = { task ->
-                tasks.add(task)
-                showAddDialog = false
-            }
-        )
-    }
-    
-    // 编辑任务对话框
-    if (showEditDialog && selectedTask != null) {
-        EditTaskDialog(
-            task = selectedTask!!,
-            onDismiss = { 
-                showEditDialog = false
-                selectedTask = null
-            },
-            onConfirm = { updatedTask ->
-                val index = tasks.indexOfFirst { it.id == updatedTask.id }
-                if (index != -1) {
-                    tasks[index] = updatedTask
-                }
-                showEditDialog = false
-                selectedTask = null
-            }
-        )
-    }
 }
 
 @Composable
-fun TaskCard(
-    task: Task,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
-) {
+fun TaskCard(task: Task) {
     val isDarkTheme = isSystemInDarkTheme()
     val textPrimaryColor = if (isDarkTheme) TextPrimary else TextPrimaryLight
     val textSecondaryColor = if (isDarkTheme) TextSecondary else TextSecondaryLight
-    val textDisabledColor = if (isDarkTheme) TextDisabled else TextDisabledLight
     val surfaceVariantColor = if (isDarkTheme) TechDarkSurfaceVariant else TechLightSurfaceVariant
     
     Card(
@@ -957,175 +440,21 @@ fun TaskCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = task.name,
-                    color = textPrimaryColor,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                // 操作按钮
-                Row {
-                    IconButton(onClick = onEdit) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "编辑",
-                            tint = NeonBlue
-                        )
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "删除",
-                            tint = ErrorRed
-                        )
-                    }
-                }
-            }
-            
-            if (task.remark.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = task.remark,
-                    color = textSecondaryColor,
-                    fontSize = 14.sp
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "设备数量: ",
-                color = textDisabledColor,
-                fontSize = 12.sp
+                text = task.name,
+                color = textPrimaryColor,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
             )
             
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            
             Text(
-                text = "指令数量: ",
-                color = textDisabledColor,
-                fontSize = 12.sp
+                text = task.remark,
+                color = textSecondaryColor,
+                fontSize = 14.sp,
+                lineHeight = 20.sp
             )
         }
     }
-}
-
-@Composable
-fun AddTaskDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (Task) -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var remark by remember { mutableStateOf("") }
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "添加任务",
-                color = if (isSystemInDarkTheme()) TextPrimary else TextPrimaryLight
-            )
-        },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("任务名称") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = remark,
-                    onValueChange = { remark = it },
-                    label = { Text("备注") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (name.isNotEmpty()) {
-                        onConfirm(
-                            Task(
-                                id = System.currentTimeMillis().toInt(),
-                                name = name,
-                                remark = remark
-                            )
-                        )
-                    }
-                }
-            ) {
-                Text("确定")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
-}
-
-@Composable
-fun EditTaskDialog(
-    task: Task,
-    onDismiss: () -> Unit,
-    onConfirm: (Task) -> Unit
-) {
-    var name by remember { mutableStateOf(task.name) }
-    var remark by remember { mutableStateOf(task.remark) }
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "编辑任务",
-                color = if (isSystemInDarkTheme()) TextPrimary else TextPrimaryLight
-            )
-        },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("任务名称") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = remark,
-                    onValueChange = { remark = it },
-                    label = { Text("备注") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (name.isNotEmpty()) {
-                        onConfirm(
-                            task.copy(
-                                name = name,
-                                remark = remark
-                            )
-                        )
-                    }
-                }
-            ) {
-                Text("确定")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
 }

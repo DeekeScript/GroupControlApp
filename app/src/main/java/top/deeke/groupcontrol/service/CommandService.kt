@@ -1,17 +1,28 @@
 package top.deeke.groupcontrol.service
 
-import android.app.*
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import top.deeke.groupcontrol.MainActivity
 import top.deeke.groupcontrol.R
 import top.deeke.groupcontrol.data.DataStoreManager
-import top.deeke.groupcontrol.network.ApiService
 import top.deeke.groupcontrol.model.ServerConfig
+import top.deeke.groupcontrol.network.ApiService
 
 class CommandService : Service() {
     
@@ -63,7 +74,9 @@ class CommandService : Service() {
     private suspend fun startPolling(config: ServerConfig) {
         while (serviceScope.isActive) {
             try {
-                val response = apiService.checkServerConfig(config.serverUrl, config.sendRoute)
+                // 获取当前token
+                val currentToken = dataStoreManager.authToken.first()
+                val response = apiService.checkServerConfig(config.serverUrl, config.sendRoute, currentToken)
                 
                 // 更新通知显示最新状态
                 val statusText = if (response.code == 200) "正常" else "异常 (${response.code})"
@@ -73,6 +86,8 @@ class CommandService : Service() {
                 
                 // 如果返回401或402，停止服务（需要重新登录）
                 if (response.code == 401 || response.code == 402) {
+                    // 清除无效token
+                    dataStoreManager.clearAuthToken()
                     stopService()
                     break
                 }
@@ -90,19 +105,17 @@ class CommandService : Service() {
     }
     
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "指令服务",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "定时请求服务器配置"
-                setShowBadge(false)
-            }
-            
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "远程服务",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "定时请求服务器配置"
+            setShowBadge(false)
         }
+
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
     }
     
     private fun createNotification(status: String = "服务运行中"): Notification {
@@ -116,9 +129,9 @@ class CommandService : Service() {
         )
         
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("指令服务")
+            .setContentTitle("远程服务")
             .setContentText(status)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.logo)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setAutoCancel(false)
