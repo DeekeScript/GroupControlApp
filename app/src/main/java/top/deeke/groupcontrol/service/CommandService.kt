@@ -45,23 +45,41 @@ class CommandService : Service() {
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        android.util.Log.d("CommandService", "onStartCommand called with action: ${intent?.action}")
         when (intent?.action) {
-            ACTION_START_SERVICE -> startService()
-            ACTION_STOP_SERVICE -> stopService()
+            ACTION_START_SERVICE -> {
+                android.util.Log.d("CommandService", "Starting service")
+                startService()
+            }
+            ACTION_STOP_SERVICE -> {
+                android.util.Log.d("CommandService", "Stopping service")
+                stopService()
+            }
         }
         return START_STICKY
     }
     
     private fun startService() {
-        startForeground(NOTIFICATION_ID, createNotification())
-        
-        currentJob?.cancel()
-        currentJob = serviceScope.launch {
-            dataStoreManager.serverConfig.collect { config ->
-                if (config.serverUrl.isNotBlank() && config.sendRoute.isNotBlank()) {
-                    startPolling(config)
+        android.util.Log.d("CommandService", "startService() called")
+        try {
+            startForeground(NOTIFICATION_ID, createNotification())
+            android.util.Log.d("CommandService", "Foreground service started")
+            
+            currentJob?.cancel()
+            currentJob = serviceScope.launch {
+                android.util.Log.d("CommandService", "Starting to collect server config")
+                dataStoreManager.serverConfig.collect { config ->
+                    android.util.Log.d("CommandService", "Server config collected: ${config.serverUrl}")
+                    if (config.serverUrl.isNotBlank() && config.sendRoute.isNotBlank()) {
+                        android.util.Log.d("CommandService", "Starting polling with config: ${config.serverUrl}${config.sendRoute}")
+                        startPolling(config)
+                    } else {
+                        android.util.Log.w("CommandService", "Server config is incomplete, skipping polling")
+                    }
                 }
             }
+        } catch (e: Exception) {
+            android.util.Log.e("CommandService", "Error starting service: ${e.message}")
         }
     }
     
@@ -72,20 +90,24 @@ class CommandService : Service() {
     }
     
     private suspend fun startPolling(config: ServerConfig) {
+        android.util.Log.d("CommandService", "startPolling() called with frequency: ${config.requestFrequency}ms")
         while (serviceScope.isActive) {
             try {
                 // 获取当前token
                 val currentToken = dataStoreManager.authToken.first()
+                android.util.Log.d("CommandService", "Making API call with token: ${if (currentToken.isNotBlank()) "present" else "empty"}")
                 val response = apiService.checkServerConfig(config.serverUrl, config.sendRoute, currentToken)
+                android.util.Log.d("CommandService", "API response: code=${response.code}, message=${response.message}")
                 
                 // 更新通知显示最新状态
-                val statusText = if (response.code == 200) "正常" else "异常 (${response.code})"
-                val notification = createNotification("状态: $statusText")
+                //val statusText = if (response.code == 200) "正常" else "异常 (${response.code})"
+                val notification = createNotification("远程服务运行中...")
                 val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 notificationManager.notify(NOTIFICATION_ID, notification)
                 
                 // 如果返回401或402，停止服务（需要重新登录）
                 if (response.code == 401 || response.code == 402) {
+                    android.util.Log.w("CommandService", "Authentication failed (${response.code}), stopping service")
                     // 清除无效token
                     dataStoreManager.clearAuthToken()
                     stopService()
@@ -93,6 +115,7 @@ class CommandService : Service() {
                 }
                 
             } catch (e: Exception) {
+                android.util.Log.e("CommandService", "Error during polling: ${e.message}")
                 // 网络错误时也更新通知
                 val notification = createNotification("网络错误: ${e.message}")
                 val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -102,6 +125,7 @@ class CommandService : Service() {
             // 等待配置的间隔时间
             delay(config.requestFrequency.toLong())
         }
+        android.util.Log.d("CommandService", "Polling loop ended")
     }
     
     private fun createNotificationChannel() {

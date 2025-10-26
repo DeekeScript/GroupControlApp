@@ -1,5 +1,6 @@
 package top.deeke.groupcontrol.ui.screens
 
+import android.content.Intent
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.first
 import top.deeke.groupcontrol.R
 import top.deeke.groupcontrol.data.DataStoreManager
 import top.deeke.groupcontrol.network.ApiService
+import top.deeke.groupcontrol.service.CommandService
 import top.deeke.groupcontrol.ui.theme.*
 
 @Composable
@@ -60,6 +62,16 @@ fun SplashScreen(
 
                         0 -> {
                             statusText = "启动完成"
+                            // 启动CommandService服务
+                            try {
+                                val serviceIntent = Intent(context, CommandService::class.java).apply {
+                                    action = CommandService.ACTION_START_SERVICE
+                                }
+                                context.startForegroundService(serviceIntent)
+                                Log.d("debug", "SplashScreen: CommandService启动成功")
+                            } catch (e: Exception) {
+                                Log.e("debug", "SplashScreen: CommandService启动失败: ${e.message}")
+                            }
                             delay(500)
                             onNavigateToMain()
                         }
@@ -115,7 +127,7 @@ fun SplashScreen(
 
             // APP名称
             Text(
-                text = "Deeke远程控制端",
+                text = "远程控制端",
                 color = if (isDarkTheme) TextPrimary else TextPrimaryLight,
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold
