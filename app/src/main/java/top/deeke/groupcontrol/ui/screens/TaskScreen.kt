@@ -13,6 +13,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import java.text.SimpleDateFormat
+import java.util.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -406,8 +410,19 @@ fun TaskCard(
                             )
                         },
                         text = {
+                            val clipboardManager = LocalClipboardManager.current
                             Column {
                                 selectedDevices.forEach { device ->
+                                    // 格式化设备ID，只显示后两段
+                                    val formattedDeviceId = remember(device.deviceId) {
+                                        val parts = device.deviceId.split("-")
+                                        if (parts.size >= 2) {
+                                            "${parts[parts.size - 2]}-${parts[parts.size - 1]}"
+                                        } else {
+                                            device.deviceId
+                                        }
+                                    }
+                                    
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -431,10 +446,24 @@ fun TaskCard(
                                             modifier = Modifier.weight(1f)
                                         )
                                         Text(
-                                            text = device.deviceId,
+                                            text = formattedDeviceId,
                                             color = textSecondaryColor,
                                             fontSize = 12.sp
                                         )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        IconButton(
+                                            onClick = {
+                                                clipboardManager.setText(AnnotatedString(device.deviceId))
+                                            },
+                                            modifier = Modifier.size(20.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Share,
+                                                contentDescription = "复制设备ID",
+                                                tint = textSecondaryColor,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -468,6 +497,16 @@ fun TaskCard(
                     lineHeight = 20.sp
                 )
             }
+            
+            // 创建时间
+            Spacer(modifier = Modifier.height(8.dp))
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+            val createTime = dateFormat.format(Date(task.createdAt))
+            Text(
+                text = "创建时间: $createTime",
+                color = textSecondaryColor,
+                fontSize = 12.sp
+            )
         }
     }
     
@@ -531,9 +570,10 @@ fun AddTaskDialog(
     var remark by remember { mutableStateOf("") }
     var selectedCommandId by remember { mutableStateOf(0) }
     var selectedDeviceIds by remember { mutableStateOf<List<Int>>(emptyList()) }
-    var durationHours by remember { mutableStateOf(0) }
-    var durationMinutes by remember { mutableStateOf(0) }
+    var durationHours by remember { mutableStateOf("") }
+    var durationMinutes by remember { mutableStateOf("") }
     var showDeviceSelector by remember { mutableStateOf(false) }
+    var validationMessage by remember { mutableStateOf("") }
     
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -639,12 +679,15 @@ fun AddTaskDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedTextField(
-                        value = durationHours.toString(),
+                        value = durationHours,
                         onValueChange = { 
-                            val value = it.toIntOrNull() ?: 0
-                            durationHours = if (value >= 0) value else 0
+                            // 只允许输入数字
+                            if (it.isEmpty() || it.all { char -> char.isDigit() }) {
+                                durationHours = it
+                            }
                         },
                         label = { Text("小时", color = textSecondaryColor) },
+                        placeholder = { Text("0", color = textSecondaryColor) },
                         modifier = Modifier.weight(1f),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = primaryColor,
@@ -654,12 +697,18 @@ fun AddTaskDialog(
                         )
                     )
                     OutlinedTextField(
-                        value = durationMinutes.toString(),
+                        value = durationMinutes,
                         onValueChange = { 
-                            val value = it.toIntOrNull() ?: 0
-                            durationMinutes = if (value >= 0 && value < 60) value else 0
+                            // 只允许输入数字，且限制在0-59范围内
+                            if (it.isEmpty() || it.all { char -> char.isDigit() }) {
+                                val value = it.toIntOrNull() ?: 0
+                                if (value <= 59) {
+                                    durationMinutes = it
+                                }
+                            }
                         },
                         label = { Text("分钟", color = textSecondaryColor) },
+                        placeholder = { Text("0", color = textSecondaryColor) },
                         modifier = Modifier.weight(1f),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = primaryColor,
@@ -685,13 +734,40 @@ fun AddTaskDialog(
                         unfocusedTextColor = textPrimaryColor
                     )
                 )
+                
+                // 验证提示信息
+                if (validationMessage.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = validationMessage,
+                        color = ErrorRed,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (name.isNotEmpty() && selectedCommandId > 0 && selectedDeviceIds.isNotEmpty()) {
-                        onConfirm(name, remark, selectedCommandId, selectedDeviceIds, durationHours, durationMinutes)
+                    // 验证必填项
+                    validationMessage = ""
+                    when {
+                        name.isBlank() -> {
+                            validationMessage = "请输入任务名称"
+                        }
+                        selectedCommandId == 0 -> {
+                            validationMessage = "请选择指令"
+                        }
+                        selectedDeviceIds.isEmpty() -> {
+                            validationMessage = "请选择至少一个设备"
+                        }
+                        else -> {
+                            // 验证通过，提交表单
+                            val hours = durationHours.toIntOrNull() ?: 0
+                            val minutes = durationMinutes.toIntOrNull() ?: 0
+                            onConfirm(name, remark, selectedCommandId, selectedDeviceIds, hours, minutes)
+                        }
                     }
                 },
                 colors = ButtonDefaults.buttonColors(

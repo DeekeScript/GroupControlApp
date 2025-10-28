@@ -9,6 +9,8 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import top.deeke.groupcontrol.database.AppDatabase
+import top.deeke.groupcontrol.database.entity.DeviceEntity
 import top.deeke.groupcontrol.model.ServerConfig
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -61,5 +63,10 @@ class DataStoreManager(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences.remove(tokenKey)
         }
+    }
+    
+    suspend fun getAllDevices(): Flow<List<DeviceEntity>> {
+        val database = AppDatabase.getDatabase(context)
+        return database.deviceDao().getAllDevices()
     }
 }

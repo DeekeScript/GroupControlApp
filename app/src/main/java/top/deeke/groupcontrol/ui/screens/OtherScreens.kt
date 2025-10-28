@@ -110,11 +110,11 @@ fun CommandScreen() {
                 }
                 
                 // 导入指令按钮
-                Button(
+            Button(
                     onClick = { filePickerLauncher.launch("application/json") },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = NeonBlue
-                    ),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = NeonBlue
+                ),
                     shape = RoundedCornerShape(6.dp),
                     enabled = !isLoading,
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
@@ -126,20 +126,20 @@ fun CommandScreen() {
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Icon(
-                            imageVector = Icons.Default.Add,
+                Icon(
+                    imageVector = Icons.Default.Add,
                             contentDescription = "导入指令",
                             tint = TextPrimary,
                             modifier = Modifier.size(16.dp)
-                        )
+                )
                     }
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(
+                Text(
                         text = if (isLoading) "导入中..." else "导入指令",
-                        color = TextPrimary,
+                    color = TextPrimary,
                         fontWeight = FontWeight.Medium,
                         fontSize = 13.sp
-                    )
+                )
                 }
             }
         }
@@ -246,17 +246,17 @@ fun CommandScreen() {
                     color = textSecondaryColor,
                     fontSize = 14.sp
                 )
-            },
-            confirmButton = {
+        },
+        confirmButton = {
                 Button(
-                    onClick = {
+                onClick = {
                         commandViewModel.deleteAllCommands()
                         showClearConfirmDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(
+                colors = ButtonDefaults.buttonColors(
                         containerColor = ErrorRed
-                    ),
-                    shape = RoundedCornerShape(8.dp)
+                ),
+                shape = RoundedCornerShape(8.dp)
                 ) {
                     Text("确认清空", color = TextPrimary)
                 }
@@ -284,14 +284,14 @@ fun CommandCard(command: CommandEntity) {
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
+            ) {
+                Text(
                 text = command.name,
-                color = textPrimaryColor,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
-            )
-            
+                    color = textPrimaryColor,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                
             if (command.title.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -302,8 +302,8 @@ fun CommandCard(command: CommandEntity) {
             }
             
             if (command.jsFile.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
                     text = "指令: ${command.jsFile}",
                     color = textSecondaryColor,
                     fontSize = 14.sp

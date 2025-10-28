@@ -9,6 +9,9 @@ interface DeviceDao {
     @Query("SELECT * FROM devices ORDER BY createdAt DESC")
     fun getAllDevices(): Flow<List<DeviceEntity>>
 
+    @Query("SELECT * FROM devices WHERE deviceId = :deviceId")
+    suspend fun getDeviceByDeviceId(deviceId: String): DeviceEntity?
+
     @Query("SELECT * FROM devices WHERE id = :id")
     suspend fun getDeviceById(id: Int): DeviceEntity?
 

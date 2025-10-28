@@ -1,5 +1,6 @@
 package top.deeke.groupcontrol.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -13,11 +14,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ClipboardManager
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Image
 import androidx.lifecycle.viewmodel.compose.viewModel
+import top.deeke.groupcontrol.R
 import top.deeke.groupcontrol.database.entity.DeviceEntity
 import top.deeke.groupcontrol.ui.theme.*
 import top.deeke.groupcontrol.viewmodel.DeviceViewModel
@@ -29,18 +36,18 @@ fun DeviceScreen() {
     val textPrimaryColor = if (isDarkTheme) TextPrimary else TextPrimaryLight
     val textSecondaryColor = if (isDarkTheme) TextSecondary else TextSecondaryLight
     val surfaceVariantColor = if (isDarkTheme) TechDarkSurfaceVariant else TechLightSurfaceVariant
-    
+
     val context = LocalContext.current
     val deviceViewModel: DeviceViewModel = viewModel(factory = DeviceViewModelFactory(context))
     val devices by deviceViewModel.devices.collectAsState()
     val isLoading by deviceViewModel.isLoading.collectAsState()
     val errorMessage by deviceViewModel.errorMessage.collectAsState()
-    
+
     var showAddDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var showClearConfirmDialog by remember { mutableStateOf(false) }
     var selectedDevice by remember { mutableStateOf<DeviceEntity?>(null) }
-    
+
     // 清除错误信息
     LaunchedEffect(errorMessage) {
         if (errorMessage != null) {
@@ -48,7 +55,7 @@ fun DeviceScreen() {
             deviceViewModel.clearError()
         }
     }
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -66,7 +73,7 @@ fun DeviceScreen() {
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
-            
+
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -96,7 +103,7 @@ fun DeviceScreen() {
                         )
                     }
                 }
-                
+
                 // 添加设备按钮
                 Button(
                     onClick = { showAddDialog = true },
@@ -122,9 +129,9 @@ fun DeviceScreen() {
                 }
             }
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // 设备列表或空状态
         if (devices.isEmpty()) {
             // 空状态提示
@@ -142,18 +149,18 @@ fun DeviceScreen() {
                         modifier = Modifier.size(80.dp),
                         tint = textSecondaryColor
                     )
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     Text(
                         text = "暂无设备",
                         color = textPrimaryColor,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Medium
                     )
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     Text(
                         text = "点击上方添加设备按钮\n添加您的第一个设备",
                         color = textSecondaryColor,
@@ -169,21 +176,22 @@ fun DeviceScreen() {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(devices) { device ->
-                    DeviceCard(
-                        device = device,
-                        onEdit = { 
-                            selectedDevice = device
-                            showEditDialog = true 
-                        },
-                        onDelete = { 
-                            deviceViewModel.deleteDevice(device)
-                        }
-                    )
+                        DeviceCard(
+                            device = device,
+                            onEdit = {
+                                selectedDevice = device
+                                showEditDialog = true
+                            },
+                            onDelete = {
+                                deviceViewModel.deleteDevice(device)
+                            },
+                            context = context
+                        )
                 }
             }
         }
     }
-    
+
     // 添加设备对话框
     if (showAddDialog) {
         AddDeviceDialog(
@@ -194,12 +202,12 @@ fun DeviceScreen() {
             }
         )
     }
-    
+
     // 编辑设备对话框
     if (showEditDialog && selectedDevice != null) {
         EditDeviceDialog(
             device = selectedDevice!!,
-            onDismiss = { 
+            onDismiss = {
                 showEditDialog = false
                 selectedDevice = null
             },
@@ -210,7 +218,7 @@ fun DeviceScreen() {
             }
         )
     }
-    
+
     // 清空确认对话框
     if (showClearConfirmDialog) {
         AlertDialog(
@@ -257,15 +265,27 @@ fun DeviceScreen() {
 fun DeviceCard(
     device: DeviceEntity,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    context: android.content.Context
 ) {
     val isDarkTheme = isSystemInDarkTheme()
     val textPrimaryColor = if (isDarkTheme) TextPrimary else TextPrimaryLight
     val textSecondaryColor = if (isDarkTheme) TextSecondary else TextSecondaryLight
     val surfaceVariantColor = if (isDarkTheme) TechDarkSurfaceVariant else TechLightSurfaceVariant
-    
+    val clipboardManager = LocalClipboardManager.current
+
     var showDeleteConfirm by remember { mutableStateOf(false) }
-    
+
+    // 格式化设备ID，只显示后两段
+    val formattedDeviceId = remember(device.deviceId) {
+        val parts = device.deviceId.split("-")
+        if (parts.size >= 2) {
+            "${parts[parts.size - 2]}-${parts[parts.size - 1]}"
+        } else {
+            device.deviceId
+        }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -285,7 +305,7 @@ fun DeviceCard(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
-                
+
                 // 操作按钮
                 Row {
                     IconButton(onClick = onEdit) {
@@ -304,7 +324,7 @@ fun DeviceCard(
                     }
                 }
             }
-            
+
             // 设备状态指示器
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -342,14 +362,32 @@ fun DeviceCard(
                         fontWeight = FontWeight.Medium
                     )
                 }
-                
-                Text(
-                    text = "ID: ${device.deviceId}",
-                    color = textSecondaryColor,
-                    fontSize = 12.sp
-                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "设备ID: $formattedDeviceId",
+                        color = textSecondaryColor,
+                        fontSize = 12.sp
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    IconButton(
+                        onClick = {
+                            clipboardManager.setText(AnnotatedString(device.deviceId))
+                            Toast.makeText(context, "复制成功", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.size(20.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.copy),
+                            contentDescription = "复制设备ID",
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
             }
-            
+
             // 备注信息
             if (device.remark.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -362,7 +400,7 @@ fun DeviceCard(
             }
         }
     }
-    
+
     // 删除确认对话框
     if (showDeleteConfirm) {
         AlertDialog(
@@ -413,7 +451,7 @@ fun AddDeviceDialog(
     var name by remember { mutableStateOf("") }
     var remark by remember { mutableStateOf("") }
     var deviceId by remember { mutableStateOf("") }
-    
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -474,7 +512,7 @@ fun EditDeviceDialog(
     var name by remember { mutableStateOf(device.name) }
     var remark by remember { mutableStateOf(device.remark) }
     var deviceId by remember { mutableStateOf(device.deviceId) }
-    
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {

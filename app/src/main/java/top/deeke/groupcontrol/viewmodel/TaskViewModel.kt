@@ -1,6 +1,7 @@
 package top.deeke.groupcontrol.viewmodel
 
 import android.content.Context
+import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +20,7 @@ class TaskViewModel(context: Context) : ViewModel() {
     private val repository = TaskRepository(database.taskDao())
     private val dataStoreManager = DataStoreManager(context)
     private val apiService = ApiService()
+    private val context = context
 
     private val _tasks = MutableStateFlow<List<TaskEntity>>(emptyList())
     val tasks: StateFlow<List<TaskEntity>> = _tasks.asStateFlow()
@@ -108,12 +110,25 @@ class TaskViewModel(context: Context) : ViewModel() {
                         emptyList()
                     }
                     
+                    // 获取设备的实际deviceId（用户添加的设备ID）
+                    val deviceDao = database.deviceDao()
+                    val actualDeviceIds = mutableListOf<String>()
+                    deviceIdList.forEach { deviceDbId ->
+                        val device = deviceDao.getDeviceById(deviceDbId)
+                        device?.deviceId?.let { actualDeviceIds.add(it) }
+                    }
+                    
+                    // 获取指令信息
+                    val command = database.commandDao().getCommandById(task.commandId)
+                    val action = command?.jsFile ?: ""
+                    
                     // 准备发送的数据
                     val taskData = mapOf(
                         "taskId" to task.id,
                         "taskName" to task.name,
                         "commandId" to task.commandId,
-                        "deviceIds" to deviceIdList,
+                        "action" to action,
+                        "deviceIds" to actualDeviceIds,
                         "durationHours" to task.durationHours,
                         "durationMinutes" to task.durationMinutes,
                         "remark" to task.remark
@@ -127,13 +142,14 @@ class TaskViewModel(context: Context) : ViewModel() {
                         taskData
                     )
                     
-                    if (response.code == 200) {
+                    if (response.code == 0) {
                         // 发送成功，更新任务状态
                         val completedTask = updatedTask.copy(
                             status = "COMPLETED",
                             updatedAt = System.currentTimeMillis()
                         )
                         repository.updateTask(completedTask)
+                        Toast.makeText(context, response.message, Toast.LENGTH_SHORT).show()
                     } else {
                         // 发送失败，更新任务状态
                         val failedTask = updatedTask.copy(
