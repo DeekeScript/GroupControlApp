@@ -8,8 +8,10 @@ Deeke远程控制端，可以通过本控制端APP发送指令给Deeke软件（�
 
 #### APP截图如下：
 
-<img src="./phonto/0.png" width="32%" />
-<img src="./phonto/1.png" width="32%" />
-<img src="./phonto/2.png" width="32%" />
-<img src="./phonto/3.png" width="32%" />
-<img src="./phonto/4.png" width="32%" />
+<div style="display: flex;flex-wrap: wrap;row-gap: 12px;column-gap: 1%;">
+    <img src="./phonto/0.png" alt="Deeke远程控制端-主界面" width="32%" />
+    <img src="./phonto/1.png" alt="Deeke远程控制端-设备管理" width="32%" />
+    <img src="./phonto/2.png" alt="Deeke远程控制端-指令管理" width="32%" />
+    <img src="./phonto/3.png" alt="Deeke远程控制端-任务管理" width="32%" />
+    <img src="./phonto/4.png" alt="Deeke远程控制端-配置" width="32%" />
+</div>
