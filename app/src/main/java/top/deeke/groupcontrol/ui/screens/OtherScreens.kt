@@ -41,6 +41,9 @@ fun CommandScreen() {
     val errorMessage by commandViewModel.errorMessage.collectAsState()
     
     var showClearConfirmDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var editingCommand by remember { mutableStateOf<CommandEntity?>(null) }
     
     // 文件选择器
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -222,7 +225,17 @@ fun CommandScreen() {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(commands) { command ->
-                    CommandCard(command = command)
+                    CommandCard(
+                        command = command,
+                        onEdit = { cmd ->
+                            editingCommand = cmd
+                            showEditDialog = true
+                        },
+                        onDelete = { cmd ->
+                            editingCommand = cmd
+                            showDeleteConfirm = true
+                        }
+                    )
                 }
             }
         }
@@ -268,10 +281,70 @@ fun CommandScreen() {
             }
         )
     }
+
+    // 删除单条指令确认
+    if (showDeleteConfirm && editingCommand != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = {
+                Text(
+                    text = "确认删除",
+                    color = textPrimaryColor,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "确定要删除指令：${editingCommand!!.name} 吗？此操作不可撤销。",
+                    color = textSecondaryColor,
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        commandViewModel.deleteCommand(editingCommand!!)
+                        showDeleteConfirm = false
+                        editingCommand = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("确认删除", color = TextPrimary)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("取消", color = textSecondaryColor)
+                }
+            }
+        )
+    }
+
+    // 编辑对话框
+    if (showEditDialog && editingCommand != null) {
+        EditCommandDialog(
+            initial = editingCommand!!,
+            onDismiss = {
+                showEditDialog = false
+                editingCommand = null
+            },
+            onConfirm = { updated ->
+                commandViewModel.updateCommand(updated)
+                showEditDialog = false
+                editingCommand = null
+            }
+        )
+    }
 }
 
 @Composable
-fun CommandCard(command: CommandEntity) {
+fun CommandCard(
+    command: CommandEntity,
+    onEdit: (CommandEntity) -> Unit,
+    onDelete: (CommandEntity) -> Unit
+) {
     val isDarkTheme = isSystemInDarkTheme()
     val textPrimaryColor = if (isDarkTheme) TextPrimary else TextPrimaryLight
     val textSecondaryColor = if (isDarkTheme) TextSecondary else TextSecondaryLight
@@ -285,12 +358,34 @@ fun CommandCard(command: CommandEntity) {
         Column(
             modifier = Modifier.padding(16.dp)
             ) {
-                Text(
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
                 text = command.name,
                     color = textPrimaryColor,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
-                )
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        IconButton(onClick = { onEdit(command) }) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "编辑",
+                                tint = textSecondaryColor
+                            )
+                        }
+                        IconButton(onClick = { onDelete(command) }) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "删除",
+                                tint = ErrorRed
+                            )
+                        }
+                    }
+                }
                 
             if (command.title.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
@@ -321,4 +416,78 @@ fun CommandCard(command: CommandEntity) {
             }
         }
     }
+}
+
+// 编辑指令对话框
+@Composable
+private fun EditCommandDialog(
+    initial: CommandEntity,
+    onDismiss: () -> Unit,
+    onConfirm: (CommandEntity) -> Unit
+) {
+    val isDarkTheme = isSystemInDarkTheme()
+    val textPrimaryColor = if (isDarkTheme) TextPrimary else TextPrimaryLight
+    val textSecondaryColor = if (isDarkTheme) TextSecondary else TextSecondaryLight
+
+    var name by remember { mutableStateOf(initial.name) }
+    var title by remember { mutableStateOf(initial.title) }
+    var jsFile by remember { mutableStateOf(initial.jsFile) }
+    var description by remember { mutableStateOf(initial.description) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "编辑指令",
+                color = textPrimaryColor,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("名称", color = textSecondaryColor) },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("功能标题", color = textSecondaryColor) },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = jsFile,
+                    onValueChange = { jsFile = it },
+                    label = { Text("jsFile", color = textSecondaryColor) },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("描述", color = textSecondaryColor) },
+                    minLines = 2
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                onConfirm(
+                    initial.copy(
+                        name = name,
+                        title = title,
+                        jsFile = jsFile,
+                        description = description
+                    )
+                )
+            }) {
+                Text("保存")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        }
+    )
 }

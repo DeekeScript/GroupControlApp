@@ -100,7 +100,7 @@ class CommandViewModel(context: Context) : ViewModel() {
             repository.updateCommand(command)
         }
     }
-    
+
     fun deleteAllCommands() {
         viewModelScope.launch {
             repository.deleteAllCommands()

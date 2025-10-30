@@ -23,7 +23,6 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:theme="@style/Theme.GroupControl.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -36,7 +35,8 @@
             android:name=".service.CommandService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="dataSync"
+            tools:ignore="ForegroundServicePermission" />
     </application>
 
 </manifest>
