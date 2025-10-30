@@ -25,6 +25,7 @@ class DataStoreManager(private val context: Context) {
     
     // 用户认证相关
     private val tokenKey = stringPreferencesKey("auth_token")
+    private val usernameKey = stringPreferencesKey("username")
     
     // 获取服务器配置
     val serverConfig: Flow<ServerConfig> = context.dataStore.data.map { preferences ->
@@ -50,6 +51,11 @@ class DataStoreManager(private val context: Context) {
     val authToken: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[tokenKey] ?: ""
     }
+
+    // 获取用户名
+    val username: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[usernameKey] ?: ""
+    }
     
     // 保存认证token
     suspend fun saveAuthToken(token: String) {
@@ -57,11 +63,25 @@ class DataStoreManager(private val context: Context) {
             preferences[tokenKey] = token
         }
     }
+
+    // 保存用户名
+    suspend fun saveUsername(name: String) {
+        context.dataStore.edit { preferences ->
+            preferences[usernameKey] = name
+        }
+    }
     
     // 清除认证token
     suspend fun clearAuthToken() {
         context.dataStore.edit { preferences ->
             preferences.remove(tokenKey)
+        }
+    }
+
+    // 清除用户名
+    suspend fun clearUsername() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(usernameKey)
         }
     }
     
