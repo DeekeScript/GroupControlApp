@@ -1,6 +1,7 @@
 ﻿package top.deeke.groupcontrol.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,6 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,35 +63,57 @@ fun MainScreen(
             },
             actions = {
                 var expanded by remember { mutableStateOf(false) }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
+                Box(
+                    modifier = Modifier.wrapContentSize(Alignment.TopEnd),
+                    contentAlignment = Alignment.TopEnd
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AccountCircle,
-                        contentDescription = "用户",
-                        tint = if (isDarkTheme) NeonBlue else NeonCyan
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (username.isNotBlank()) username.substring(
-                            0,
-                            3
-                        ) + "****" + username.substring(7, 11) else "未登录",
-                        color = textPrimaryColor,
-                        fontSize = 14.sp
-                    )
-                    IconButton(onClick = { expanded = true }) {
+                    var anchorWidthPx by remember { mutableStateOf(0) }
+                    val density = LocalDensity.current
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clickable { expanded = true }
+                            .onGloballyPositioned { layoutCoordinates ->
+                                anchorWidthPx = layoutCoordinates.size.width
+                            }
+                    ) {
                         Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = "更多"
+                            imageVector = Icons.Default.AccountCircle,
+                            contentDescription = "用户",
+                            tint = if (isDarkTheme) NeonBlue else NeonCyan
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        // 安全的账号脱敏显示：中间4位用*，长度不足则原样
+                        Text(
+                            text = if (username.isNotBlank()) {
+                                if (username.length > 7) {
+                                    username.replaceRange(3, (username.length - 4).coerceAtLeast(3), "****")
+                                } else username
+                            } else "未登录",
+                            color = textPrimaryColor,
+                            fontSize = 14.sp
+                        )
+                        IconButton(onClick = { expanded = true }) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = "更多"
+                            )
+                        }
                     }
                     DropdownMenu(
                         expanded = expanded,
-                        onDismissRequest = { expanded = false }
+                        onDismissRequest = { expanded = false },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .width(with(density) { anchorWidthPx.toDp() })
                     ) {
                         DropdownMenuItem(
-                            text = { Text("退出") },
+                            text = {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentAlignment = Alignment.CenterStart
+                                ) { Text("退出") }
+                            },
                             onClick = {
                                 expanded = false
                                 onLogout()
