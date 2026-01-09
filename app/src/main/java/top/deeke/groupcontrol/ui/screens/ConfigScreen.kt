@@ -40,8 +40,8 @@ fun ConfigScreen(
     
     var serverUrl by remember { mutableStateOf("") }
     var requestFrequency by remember { mutableStateOf("5000") }
-    var sendRoute by remember { mutableStateOf("/api/send") }
-    var loginRoute by remember { mutableStateOf("/api/login") }
+    var sendRoute by remember { mutableStateOf("/api/dkee/groupRun") }
+    var loginRoute by remember { mutableStateOf("/api/dkee/login") }
     
     // 加载配置
     LaunchedEffect(Unit) {
@@ -151,7 +151,7 @@ fun ConfigScreen(
                         saveConfig()
                     },
                     label = { Text("指令路由", color = textSecondaryColor) },
-                    placeholder = { Text("/api/send", color = textSecondaryColor) },
+                    placeholder = { Text("/api/dkee/groupRun", color = textSecondaryColor) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = primaryColor,
@@ -170,7 +170,7 @@ fun ConfigScreen(
                         saveConfig()
                     },
                     label = { Text("登录路由", color = textSecondaryColor) },
-                    placeholder = { Text("/api/login", color = textSecondaryColor) },
+                    placeholder = { Text("/api/dkee/login", color = textSecondaryColor) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = primaryColor,

@@ -200,7 +200,7 @@ class CommandService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("远程服务")
             .setContentText(status)
-            .setSmallIcon(R.drawable.logo)
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setAutoCancel(false)

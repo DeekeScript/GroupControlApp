@@ -13,8 +13,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import android.graphics.BitmapFactory
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
+import android.graphics.Canvas
+import android.graphics.Bitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -116,11 +123,35 @@ fun SplashScreen(
                     .background(primaryColor.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.logo),
-                    contentDescription = "App Icon",
-                    modifier = Modifier.size(80.dp)
-                )
+                val appIcon = remember {
+                    try {
+                        val drawable = context.packageManager.getApplicationIcon(context.packageName)
+                        val bitmap = when (drawable) {
+                            is BitmapDrawable -> drawable.bitmap
+                            else -> {
+                                // 将 Drawable 转换为 Bitmap
+                                val width = drawable.intrinsicWidth.coerceAtLeast(1)
+                                val height = drawable.intrinsicHeight.coerceAtLeast(1)
+                                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                                val canvas = Canvas(bitmap)
+                                drawable.setBounds(0, 0, canvas.width, canvas.height)
+                                drawable.draw(canvas)
+                                bitmap
+                            }
+                        }
+                        bitmap?.asImageBitmap()
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                
+                appIcon?.let {
+                    Image(
+                        bitmap = it,
+                        contentDescription = "App Icon",
+                        modifier = Modifier.size(80.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
