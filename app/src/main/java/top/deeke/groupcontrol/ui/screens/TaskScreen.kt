@@ -812,6 +812,11 @@ fun DeviceSelectorDialog(
     
     var tempSelectedIds by remember { mutableStateOf(selectedDeviceIds) }
     
+    // 计算是否全选
+    val allDeviceIds = devices.map { it.id }
+    val isAllSelected = devices.isNotEmpty() && tempSelectedIds.size == devices.size && 
+                        allDeviceIds.all { it in tempSelectedIds }
+    
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -824,6 +829,42 @@ fun DeviceSelectorDialog(
         },
         text = {
             Column {
+                // 全选按钮
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = isAllSelected,
+                        onCheckedChange = { checked ->
+                            if (checked) {
+                                // 全选所有设备
+                                tempSelectedIds = allDeviceIds
+                            } else {
+                                // 取消全选
+                                tempSelectedIds = emptyList()
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "全选",
+                        color = textPrimaryColor,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "(${tempSelectedIds.size}/${devices.size})",
+                        color = textSecondaryColor,
+                        fontSize = 14.sp
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
                 // 全选在线设备按钮
                 val onlineDevices = devices.filter { it.status == "ONLINE" }
                 if (onlineDevices.isNotEmpty()) {
