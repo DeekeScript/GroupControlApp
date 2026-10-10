@@ -32,8 +32,12 @@ class DataStoreManager(private val context: Context) {
         ServerConfig(
             serverUrl = preferences[serverUrlKey] ?: "",
             requestFrequency = preferences[requestFrequencyKey] ?: 5000,
-            sendRoute = preferences[sendRouteKey] ?: "/api/send",
-            loginRoute = preferences[loginRouteKey] ?: "/api/login"
+            sendRoute = preferences[sendRouteKey]
+                ?.takeUnless { it == "/api/send" }
+                ?: "/api/dkee/groupRun",
+            loginRoute = preferences[loginRouteKey]
+                ?.takeUnless { it == "/api/login" }
+                ?: "/api/dkee/login"
         )
     }
     

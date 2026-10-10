@@ -375,7 +375,7 @@ fun TaskCard(
             if (command != null) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "指令: ${command.title}${if (command.jsFile.isNotEmpty()) " (${command.jsFile})" else ""}",
+                    text = "指令: ${command.displayLabel()}",
                     color = textSecondaryColor,
                     fontSize = 14.sp
                 )
@@ -610,9 +610,7 @@ fun AddTaskDialog(
                         onExpandedChange = { expanded = !expanded }
                     ) {
                         OutlinedTextField(
-                            value = commands.find { it.id == selectedCommandId }?.let { cmd ->
-                                "${cmd.title}${if (cmd.jsFile.isNotEmpty()) " (${cmd.jsFile})" else ""}"
-                            } ?: "选择指令",
+                            value = commands.find { it.id == selectedCommandId }?.displayLabel() ?: "选择指令",
                             onValueChange = {},
                             readOnly = true,
                             label = { Text("指令", color = textSecondaryColor) },
@@ -635,7 +633,7 @@ fun AddTaskDialog(
                                 DropdownMenuItem(
                                     text = { 
                                         Text(
-                                            "${command.title}${if (command.jsFile.isNotEmpty()) " (${command.jsFile})" else ""}", 
+                                            command.displayLabel(), 
                                             color = textPrimaryColor
                                         ) 
                                     },

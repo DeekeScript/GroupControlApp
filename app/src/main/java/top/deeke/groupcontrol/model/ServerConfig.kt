@@ -6,8 +6,8 @@ data class ServerConfig(
     val id: Int = 0,
     val serverUrl: String = "",
     val requestFrequency: Int = 5000, // 毫秒
-    val sendRoute: String = "/api/send",
-    val loginRoute: String = "/api/login"
+    val sendRoute: String = "/api/dkee/groupRun",
+    val loginRoute: String = "/api/dkee/login"
 ) : Parcelable {
     override fun describeContents(): Int = 0
     override fun writeToParcel(dest: android.os.Parcel, flags: Int) {

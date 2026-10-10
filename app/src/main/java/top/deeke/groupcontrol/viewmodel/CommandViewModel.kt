@@ -63,14 +63,17 @@ class CommandViewModel(context: Context) : ViewModel() {
                 }
                 
                 // 转换为CommandEntity并保存到数据库
-                val commands = methods.map { method ->
+                val commands = methods.mapIndexed { index, method ->
                     CommandEntity(
-                        name = method.title,
+                        name = method.displayName,
                         title = method.title,
                         jsFile = method.jsFile,
-                        description = "从deekeScript.json导入",
+                        description = buildString {
+                            append("从deekeScript.json导入")
+                            method.groupTitle?.takeIf { it.isNotBlank() }?.let { append(" · ").append(it) }
+                        },
                         content = createMethodJsonString(method),
-                        order = 0,
+                        order = index,
                         isPinned = false
                     )
                 }
@@ -118,6 +121,9 @@ class CommandViewModel(context: Context) : ViewModel() {
         method.packageName?.let { json.put("packageName", it) }
         method.columns?.let { json.put("columns", it) }
         method.autoOpen?.let { json.put("autoOpen", it) }
+        method.groupTitle?.let { json.put("groupTitle", it) }
+        method.activity?.let { json.put("activity", it) }
+        method.minVersion?.let { json.put("minVersion", it) }
         return json.toString()
     }
 }

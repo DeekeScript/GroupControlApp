@@ -14,4 +14,9 @@ data class CommandEntity(
     val content: String = "", // JSON格式的指令内容
     val order: Int = 0, // 排序位置
     val isPinned: Boolean = false // 是否置顶
-)
+) {
+    fun displayLabel(): String {
+        val label = name.ifBlank { title }
+        return if (jsFile.isNotEmpty()) "$label ($jsFile)" else label
+    }
+}
