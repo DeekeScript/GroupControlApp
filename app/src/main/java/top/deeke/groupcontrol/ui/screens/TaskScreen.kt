@@ -5,6 +5,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,6 +21,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -55,6 +58,7 @@ fun TaskScreen() {
     var showAddDialog by remember { mutableStateOf(false) }
     var showExecuteConfirmDialog by remember { mutableStateOf(false) }
     var selectedTask by remember { mutableStateOf<TaskEntity?>(null) }
+    var copySource by remember { mutableStateOf<TaskEntity?>(null) }
     
     // 清除错误信息
     LaunchedEffect(errorMessage) {
@@ -83,7 +87,10 @@ fun TaskScreen() {
             )
             
             Button(
-                onClick = { showAddDialog = true },
+                onClick = {
+                    copySource = null
+                    showAddDialog = true
+                },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = NeonBlue
                 ),
@@ -192,6 +199,10 @@ fun TaskScreen() {
                             selectedTask = task
                             showExecuteConfirmDialog = true 
                         },
+                        onCopy = {
+                            copySource = task
+                            showAddDialog = true
+                        },
                         onDelete = { 
                             taskViewModel.deleteTask(task)
                         }
@@ -206,10 +217,15 @@ fun TaskScreen() {
         AddTaskDialog(
             commands = commands,
             devices = devices,
-            onDismiss = { showAddDialog = false },
+            initialTask = copySource,
+            onDismiss = {
+                showAddDialog = false
+                copySource = null
+            },
             onConfirm = { name, remark, commandId, deviceIds, durationHours, durationMinutes ->
                 taskViewModel.addTask(name, remark, commandId, deviceIds, durationHours, durationMinutes)
                 showAddDialog = false
+                copySource = null
             }
         )
     }
@@ -268,6 +284,7 @@ fun TaskCard(
     commands: List<CommandEntity>,
     devices: List<DeviceEntity>,
     onExecute: () -> Unit,
+    onCopy: () -> Unit,
     onDelete: () -> Unit
 ) {
     val isDarkTheme = isSystemInDarkTheme()
@@ -307,11 +324,24 @@ fun TaskCard(
                     text = task.name,
                     color = textPrimaryColor,
                     fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 
                 // 操作按钮
                 Row {
+                    TextButton(
+                        onClick = onCopy,
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Text(
+                            text = "复制",
+                            color = NeonBlue,
+                            fontSize = 13.sp
+                        )
+                    }
                     if (task.status == "PENDING") {
                         IconButton(onClick = onExecute) {
                             Icon(
@@ -487,12 +517,11 @@ fun TaskCard(
                 )
             }
             
-            // 备注信息
-            if (task.remark.isNotEmpty()) {
+            if (task.remark.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = task.remark,
-                    color = textSecondaryColor,
+                    text = "备注: ${task.remark}",
+                    color = textPrimaryColor,
                     fontSize = 14.sp,
                     lineHeight = 20.sp
                 )
@@ -557,6 +586,7 @@ fun TaskCard(
 fun AddTaskDialog(
     commands: List<CommandEntity>,
     devices: List<DeviceEntity>,
+    initialTask: TaskEntity? = null,
     onDismiss: () -> Unit,
     onConfirm: (name: String, remark: String, commandId: Int, deviceIds: List<Int>, durationHours: Int, durationMinutes: Int) -> Unit
 ) {
@@ -566,12 +596,19 @@ fun AddTaskDialog(
     val borderColor = if (isDarkTheme) BorderColor else BorderColorLight
     val primaryColor = if (isDarkTheme) NeonBlue else NeonCyan
     
-    var name by remember { mutableStateOf("") }
-    var remark by remember { mutableStateOf("") }
-    var selectedCommandId by remember { mutableStateOf(0) }
-    var selectedDeviceIds by remember { mutableStateOf<List<Int>>(emptyList()) }
-    var durationHours by remember { mutableStateOf("") }
-    var durationMinutes by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(initialTask?.name.orEmpty()) }
+    var remark by remember { mutableStateOf(initialTask?.remark.orEmpty()) }
+    var selectedCommandId by remember { mutableStateOf(initialTask?.commandId ?: 0) }
+    var selectedDeviceIds by remember {
+        mutableStateOf(
+            initialTask?.deviceIds
+                ?.split(",")
+                ?.mapNotNull { it.toIntOrNull() }
+                ?: emptyList()
+        )
+    }
+    var durationHours by remember { mutableStateOf(initialTask?.durationHours?.toString() ?: "") }
+    var durationMinutes by remember { mutableStateOf(initialTask?.durationMinutes?.toString() ?: "") }
     var showDeviceSelector by remember { mutableStateOf(false) }
     var validationMessage by remember { mutableStateOf("") }
     
@@ -579,20 +616,40 @@ fun AddTaskDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "添加任务",
+                text = if (initialTask == null) "添加任务" else "复制任务",
                 color = textPrimaryColor,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
         },
         text = {
-            Column {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 480.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("任务名称", color = textSecondaryColor) },
                     placeholder = { Text("请输入任务名称", color = textSecondaryColor) },
                     modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = primaryColor,
+                        unfocusedBorderColor = borderColor,
+                        focusedTextColor = textPrimaryColor,
+                        unfocusedTextColor = textPrimaryColor
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = remark,
+                    onValueChange = { remark = it },
+                    label = { Text("备注", color = textSecondaryColor) },
+                    placeholder = { Text("请输入备注 (可选)", color = textSecondaryColor) },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = primaryColor,
                         unfocusedBorderColor = borderColor,
@@ -716,22 +773,6 @@ fun AddTaskDialog(
                         )
                     )
                 }
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                OutlinedTextField(
-                    value = remark,
-                    onValueChange = { remark = it },
-                    label = { Text("备注", color = textSecondaryColor) },
-                    placeholder = { Text("请输入备注 (可选)", color = textSecondaryColor) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = primaryColor,
-                        unfocusedBorderColor = borderColor,
-                        focusedTextColor = textPrimaryColor,
-                        unfocusedTextColor = textPrimaryColor
-                    )
-                )
                 
                 // 验证提示信息
                 if (validationMessage.isNotEmpty()) {
